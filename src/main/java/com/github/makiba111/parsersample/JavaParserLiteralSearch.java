@@ -1,23 +1,14 @@
 package com.github.makiba111.parsersample;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
 
-import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.resolution.SymbolResolver;
-import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.utils.ParserCollectionStrategy;
 import com.github.javaparser.utils.ProjectRoot;
+import com.github.javaparser.utils.StringEscapeUtils;
 
 public class JavaParserLiteralSearch {
 	private static final String JAVAP_PATH = "C:/Program Files/Java/jdk1.8.0_102/bin/javap.exe";
@@ -30,12 +21,23 @@ public class JavaParserLiteralSearch {
 		projectRoot.getSourceRoots().stream().forEach(p -> {
 			try {
 				p.tryToParse().forEach((cu) -> {
-//System.out.println(cu);s
 					cu.getResult().get().findAll(ClassOrInterfaceDeclaration.class).stream()
 				    //.filter(f -> f.isPublic() && !f.isStatic())
 				    .forEach(f -> {
 //				    	f.resolve().;
-				    	System.out.println(f.getNameAsString());
+				    	f.findAll(MethodDeclaration.class).stream()
+				    	.forEach(method -> {
+
+				    		method.findAll(StringLiteralExpr.class).stream()
+				    		.forEach(str -> {
+				    			System.out.println("String::" + StringEscapeUtils.unescapeJava(str.toString()));
+				    		});
+
+				    		System.out.println(method.getType().getElementType());
+				    		System.out.println(method);
+				    	});
+
+//				    	System.out.println(f.getNameAsString());
 				    });
 
 				});
