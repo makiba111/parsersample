@@ -3,19 +3,30 @@ package com.github.makiba111.parsersample;
 import java.io.File;
 import java.io.IOException;
 
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import com.github.javaparser.utils.ParserCollectionStrategy;
 import com.github.javaparser.utils.ProjectRoot;
 import com.github.javaparser.utils.StringEscapeUtils;
 
 public class JavaParserLiteralSearch {
-	private static final String JAVAP_PATH = "C:/Program Files/Java/jdk1.8.0_102/bin/javap.exe";
-
 	public static void main(String[] args) throws IOException {
-		String rootPath = "../PluginSample/src";
-		ParserCollectionStrategy strategy = new ParserCollectionStrategy();
+		String rootPath = args[0];;
+
+		ParserConfiguration config = new ParserConfiguration();
+		CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
+		combinedTypeSolver.add(new JavaParserTypeSolver(rootPath));
+		combinedTypeSolver.add(new ReflectionTypeSolver());
+
+		config.setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver));//new JavaSymbolSolver(new JavaParserTypeSolver(rootPath)));
+		ParserCollectionStrategy strategy = new ParserCollectionStrategy(config);
 		ProjectRoot projectRoot = strategy.collect(new File(rootPath).toPath());
 
 		projectRoot.getSourceRoots().stream().forEach(p -> {
@@ -33,8 +44,14 @@ public class JavaParserLiteralSearch {
 				    			System.out.println("String::" + StringEscapeUtils.unescapeJava(str.toString()));
 				    		});
 
-				    		System.out.println(method.getType().getElementType());
-				    		System.out.println(method);
+				    		System.out.println(method.resolve().getQualifiedName());
+
+//				    		System.out.println(method.getType().getElementType());
+				    		System.out.println(method.getParameters());
+				    		for (Parameter param : method.getParameters()) {
+				    			System.out.println("  param:" + param.resolve().getType().describe());
+
+				    		}
 				    	});
 
 //				    	System.out.println(f.getNameAsString());
