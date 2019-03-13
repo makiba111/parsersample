@@ -5,17 +5,13 @@ import java.util.List;
 
 public class MethodObject {
 
-	public MethodObject(){
-		this.setMethodCallerList(new ArrayList<>());
-		this.setLineNumberTableList(new ArrayList<>());
-	}
-
 	private int line;
 	private String methodName;
 	private String methodParameters;
 	private String methodReturn;
 	private List<MethodCallerObject> methodCallerList;
 	private List<LineNumberTable> lineNumberTableList;
+	private String innerStringLiteral;
 
 
 	public int getLine() {
@@ -23,6 +19,10 @@ public class MethodObject {
 	}
 	public void setLine(int line) {
 		this.line = line;
+	}
+	public MethodObject(){
+		this.setMethodCallerList(new ArrayList<>());
+		this.setLineNumberTableList(new ArrayList<>());
 	}
 	public String getMethodName() {
 		return methodName;
@@ -56,8 +56,14 @@ public class MethodObject {
 		this.lineNumberTableList = lineNumberTableList;
 	}
 
+	public String getInnerStringLiteral() {
+		return innerStringLiteral;
+	}
+	public void setInnerStringLiteral(String innerStringLiteral) {
+		this.innerStringLiteral = innerStringLiteral;
+	}
+
 	public String toString() {
 		return methodReturn + " " + methodName + "(" + methodParameters + ")";
 	}
-
 }

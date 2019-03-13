@@ -13,16 +13,17 @@ import java.util.List;
 import java.util.Properties;
 
 public class ExecJavaP {
-	private static String JAVAP_PATH ;//= "C:/Program Files/Java/jdk1.8.0_102/bin/javap.exe";
+	private static String JAVAP_PATH ;
 
 	public static void main(String[] args) throws IOException {
 		Properties p = new Properties();
 		try {
-			p.load(Files.newBufferedReader(Paths.get("config.properties"), StandardCharsets.UTF_8));
+			p.load(Files.newBufferedReader(Paths.get("javap.properties"), StandardCharsets.UTF_8));
 			JAVAP_PATH = p.getProperty("JAVAP");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		System.out.println(JAVAP_PATH);
 
 		String rootPath = args[0];
 		listFile(rootPath);
@@ -51,7 +52,9 @@ public class ExecJavaP {
 	private static void javapExecute(String className){
 		String[] command = {
 				"cmd", "/c",
-				JAVAP_PATH, "-c", "-p", "-l", className,
+//				JAVAP_PATH, "-c", "-l", className,
+//				JAVAP_PATH, "-c", "-p", "-l", className,
+				JAVAP_PATH, "-c", "-private", "-v", className,
 				">", new File("./temp/" + className).getAbsolutePath()
 		};
 
