@@ -58,6 +58,14 @@ public class JavaPparser {
 
 	public static void main(String[] args) throws IOException {
 		String rootPath = args[0];
+
+//		long a = System.currentTimeMillis();
+//		for(int i = 0; i < 2500; i++) {
+//			listFile(rootPath);
+//		}
+//		long b = System.currentTimeMillis();
+//		System.out.println(((b-a)/1000d) + "秒");
+
 		listFile(rootPath);
 	}
 
@@ -93,19 +101,26 @@ public class JavaPparser {
 			MethodObject mObject = null;
 
 			String line;
+			Matcher methodLineMatcher;
+			Matcher staticOpLineMatcher;
+			Matcher stringLineMatcher;
+			Matcher codeOpeLineMatcher;
+			Matcher lineNumberOpLineMatcher;
+
 			while((line = reader.readLine()) != null) {
 				log("file-line", line);
 				line = line.trim();
 
 				//
-				// Pattern Init
+				// Pattern Init.
 				//
-				Matcher methodLineMatcher = METHOD_LIKE_LINE.matcher(line);
-				Matcher staticOpLineMatcher = STATIC_OP_LINE.matcher(line);
-				Matcher stringLineMatcher = STRING_LINE.matcher(line);
-				Matcher codeOpeLineMatcher = CODE_OPE_LINE.matcher(line);
-				Matcher lineNumberOpLineMatcher = LINENUMBER_OP_LINE.matcher(line);
-				if (staticOpLineMatcher.find()) {
+				methodLineMatcher = METHOD_LIKE_LINE.matcher(line);
+				staticOpLineMatcher = STATIC_OP_LINE.matcher(line);
+				stringLineMatcher = STRING_LINE.matcher(line);
+				codeOpeLineMatcher = CODE_OPE_LINE.matcher(line);
+				lineNumberOpLineMatcher = LINENUMBER_OP_LINE.matcher(line);
+				if (staticOpLineMatcher.matches()) {
+					staticOpLineMatcher.find(0);
 					//
 					// static {} line.
 					//
@@ -117,7 +132,8 @@ public class JavaPparser {
 					mObject.setMethodName("static {}");
 					mObject.setMethodParameters("");
 
-				} else if (methodLineMatcher.find()) {
+				} else if (methodLineMatcher.matches()) {
+					methodLineMatcher.find(0);
 					//
 					// Method line.
 					//
@@ -134,7 +150,7 @@ public class JavaPparser {
 					int ks = line.indexOf("(");
 					String start = line.substring(0, ks);
 					Matcher mstruct = METHOD_STRUCT.matcher(start);
-					boolean isFind = mstruct.find();
+					boolean isFind = mstruct.find(0);
 					if(isFind) {
 						String retValue = trim(mstruct.group(4));
 						String methodName = trim(mstruct.group(5));
@@ -157,16 +173,19 @@ public class JavaPparser {
 						log("exception", clazz.getClassName() + " UnMatch Line: " + line);
 					}
 
-				} else if(stringLineMatcher.find()) {
+				} else if(stringLineMatcher.matches()) {
+					stringLineMatcher.find(0);
 					//
 					// String Literal
 					//
 
 					String val = stringLineMatcher.group(3);
 					String before = mObject.getInnerStringLiteral();
-					mObject.setInnerStringLiteral(StringEscapeUtils.unescapeJava(before != null ? before + " " + val : val));
+//					mObject.setInnerStringLiteral(StringEscapeUtils.unescapeJava(before != null ? before + " " + val : val));
+					mObject.setInnerStringLiteral((before != null ? before + " " + val : val));
 
-				} else if(codeOpeLineMatcher.find()) {
+				} else if(codeOpeLineMatcher.matches()) {
+					codeOpeLineMatcher.find(0);
 					//
 					// Code:  outer line.
 					//
@@ -199,7 +218,8 @@ public class JavaPparser {
 						log("method-caller", mObject);
 					}
 
-				} else if(lineNumberOpLineMatcher.find()) {
+				} else if(lineNumberOpLineMatcher.matches()) {
+					lineNumberOpLineMatcher.find(0);
 					//
 					// LineNumberTable: outer line.
 					//
@@ -251,10 +271,13 @@ public class JavaPparser {
 	private static void addClassMethod(ClassStruct clazz, MethodObject mObject) {
 		if(mObject != null) {
 			// set line no
-			for(int i = 0; i < mObject.getMethodCallerList().size(); i++) {
-				MethodCallerObject mca = mObject.getMethodCallerList().get(i);
-				for(int j = 0; j < mObject.getLineNumberTableList().size(); j++) {
-					LineNumberTable lt = mObject.getLineNumberTableList().get(j);
+			List<MethodCallerObject> iList = mObject.getMethodCallerList();
+			for(int i = 0, isize = iList.size(); i < isize; i++) {
+				MethodCallerObject mca = iList.get(i);
+
+				List<LineNumberTable> jList = mObject.getLineNumberTableList();
+				for(int j = 0, jsize = jList.size(); j < jsize; j++) {
+					LineNumberTable lt = jList.get(j);
 					int index = lt.getIndex();
 					if(index == mca.getIndex()) {
 //						log("D", mca.toString() + "  index::" + lt.getLine());
@@ -265,7 +288,7 @@ public class JavaPparser {
 						if(j - 1 < 0) {
 							mca.setLine(lt.getLine());
 						} else {
-							mca.setLine(mObject.getLineNumberTableList().get(j-1).getLine());
+							mca.setLine(jList.get(j-1).getLine());
 						}
 						break;
 					}
