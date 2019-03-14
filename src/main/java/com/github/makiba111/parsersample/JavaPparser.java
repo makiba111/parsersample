@@ -60,7 +60,7 @@ public class JavaPparser {
 		String rootPath = args[0];
 
 //		long a = System.currentTimeMillis();
-//		for(int i = 0; i < 2500; i++) {
+//		for(int i = 0; i < 500; i++) {
 //			listFile(rootPath);
 //		}
 //		long b = System.currentTimeMillis();
@@ -128,12 +128,11 @@ public class JavaPparser {
 					addClassMethod(clazz, mObject);
 
 					mObject = new MethodObject();
-					mObject.setMethodReturn("");
-					mObject.setMethodName("static {}");
+					mObject.setMethodReturn("void");
+					mObject.setMethodName(clazz.getClassName() + ".static");
 					mObject.setMethodParameters("");
 
 				} else if (methodLineMatcher.matches()) {
-					methodLineMatcher.find(0);
 					//
 					// Method line.
 					//
@@ -141,6 +140,8 @@ public class JavaPparser {
 					if(line.startsWith("#") || line.startsWith("descriptor:") || NONE_METHOD.matcher(line).matches()){
 						continue;
 					}
+					methodLineMatcher.find(0);
+
 					log("method", line);
 
 					addClassMethod(clazz, mObject);
