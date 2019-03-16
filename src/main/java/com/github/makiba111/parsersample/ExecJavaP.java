@@ -13,57 +13,59 @@ import java.util.List;
 import java.util.Properties;
 
 public class ExecJavaP {
-	private static String JAVAP_PATH ;
-
-	public static void main(String[] args) throws IOException {
+	private static final String JAVAP_PATH ;
+	static {
 		Properties p = new Properties();
+		String path = null;
 		try {
 			p.load(Files.newBufferedReader(Paths.get("javap.properties"), StandardCharsets.UTF_8));
-			JAVAP_PATH = p.getProperty("JAVAP");
+			path = p.getProperty("JAVAP");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println(JAVAP_PATH);
-
-		String rootPath = args[0];
-		listFile(rootPath);
+		JAVAP_PATH = path;
+		System.out.println("javap.exe path=" + JAVAP_PATH);
 	}
 
-	public static void listFile(String rootPath) throws IOException {
+	public static void main(String[] args) throws IOException {
+		String rootPath = args[0];
+		String outputPath = args[1];
+		executeByRootPath(rootPath, outputPath);
+	}
+
+	public static void executeByRootPath(String rootPath, String outputPath) throws IOException {
 		File p = new File(rootPath).getCanonicalFile();
 
 		List<File> fileList = new ArrayList<File>();
 		List<String> classFullNameList = new ArrayList<String>();
 		System.out.println(p);
-		Files.walk(p.toPath()).filter(f -> f.toFile().isFile() && f.toString().toLowerCase().endsWith(".java"))
+		Files.walk(p.toPath()).filter(f -> f.toFile().isFile() && f.toString().toLowerCase().endsWith(".class"))
 			.forEach(file -> {
 				fileList.add(file.toFile());
-				String path = file.toUri().getPath().substring(p.toPath().toUri().getPath().length()).replace(".java", "").replaceAll("/", ".");
+				String path = file.toUri().getPath().substring(p.toPath().toUri().getPath().length()).replace(".class", "").replaceAll("/", ".");
 				classFullNameList.add(path);
 				System.out.println(path);
 			});
 
-
 		classFullNameList.forEach(className -> {
-			javapExecute(className);
+			javapExecute(p, className, outputPath);
 		});
 	}
 
-	private static void javapExecute(String className){
+	private static void javapExecute(File root, String className, String outputPath){
 		String[] command = {
 				"cmd", "/c",
 //				JAVAP_PATH, "-c", "-l", className,
 //				JAVAP_PATH, "-c", "-p", "-l", className,
 				JAVAP_PATH, "-c", "-private", "-v", className,
-				">", new File("./temp/" + className).getAbsolutePath()
+				">", new File(outputPath + className).getAbsolutePath()
 		};
 
         Process process = null;
-        File dir = new File("../PluginSample/bin");// 実行ディレクトリの指定
         try {
         	ProcessBuilder pb = new ProcessBuilder(command);
         	pb.redirectErrorStream(true);
-        	pb.directory(dir);
+        	pb.directory(root);// run dir.
         	process = pb.start();
         } catch (IOException e) {
 //            e.printStackTrace();

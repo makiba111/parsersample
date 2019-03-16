@@ -15,7 +15,6 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.github.javaparser.utils.StringEscapeUtils;
 import com.github.makiba111.parsersample.dto.ClassStruct;
 import com.github.makiba111.parsersample.dto.Data;
 import com.github.makiba111.parsersample.dto.LineNumberTable;
@@ -23,25 +22,13 @@ import com.github.makiba111.parsersample.dto.MethodCallerObject;
 import com.github.makiba111.parsersample.dto.MethodObject;
 
 public class JavaPparser {
-//	private static final Pattern COMPILE_LINE = Pattern.compile("Compiled from \\\".+\\.java\"");
-//	private static final Pattern CLASS_LINE = Pattern.compile("(public\\s*)?(final\\s*)?class\\s+(.+)\\s*(extends.*)?");
-//	private static final Pattern METHOD_LIKE_LINE1 = Pattern.compile("^(public|protected|private)?\\s*(static)?\\s*(final)?\\s*(.+)\\((.+)?\\);");
-//	private static final Pattern METHOD_LIKE_LINE2 = Pattern.compile("^(public|protected|private)?\\s*(static)?\\s*(final)?\\s*(\\S+)[(](.*)[)];");
-//	private static final Pattern METHOD_LIKE_LINE3 = Pattern.compile("^(public|protected|private)?\\s*(static)?\\s*(final)?\\s*(\\S+)?\\s+(\\S+)[(](.*)[)](\\s+throws\\s+\\S+)?;");
-//	private static final Pattern METHOD_LIKE_LINE = Pattern.compile("((public|protected|private)?\\s*(static)?\\s*(final)?\\s*?)(\\S*)\\s+(\\S+?)\\((.*\\))(\\s+throws\\s+\\S+)?;");
 	private static final Pattern STATIC_OP_LINE = Pattern.compile("static [{][}];");
 	private static final Pattern METHOD_LIKE_LINE = Pattern.compile("(.+[(]).*([)]).*;$");
-	private static final Pattern METHOD_STRUCT = Pattern.compile("(public|protected|private)?\\s*(static)?\\s*(final)?\\s*(\\S*)(\\s*\\S*)");
-	private static final Pattern NONE_METHOD = Pattern.compile("\\d+:.*");
-//	private static final Pattern METHOD_LIKE_LINE = Pattern.compile("(public|protected|private)?\\s*(static)?\\s*(final)?\\s*(.*)\\s?(.+)[(](.+)?[)];");
-//	private static final Pattern METHOD_LIKE_LINE = Pattern.compile("(?!#\\d+\\s+)(public|protected|private)?\\s*(static)?\\s*(final)?\\s*(.*);$");
-//	private static final Pattern CODE_LINE = Pattern.compile("Code:");
-	private static final Pattern CODE_OPE_LINE = Pattern.compile("(\\d+): (invoke.+) (#[0-9]+)\\s+(.+)");
-	private static final Pattern CALLER_LINE = Pattern.compile("//\\s*Method\\s+(.+):\\((.+)?\\)(.+)?");
-	private static final Pattern STRING_LINE = Pattern.compile("(\\d+):\\s*ldc\\s*(#\\d+)\\s*//\\s*String\\s(.*)");
-//	private static final Pattern LINENUMBER_LINE = Pattern.compile("LineNumberTable:");
+	private static final Pattern NONE_METHOD = Pattern.compile("\\d+[:].*");
+	private static final Pattern CODE_OPE_LINE = Pattern.compile("(\\d+)[:]\\s+(invoke\\S+)\\s+(#[0-9]+)\\s+(.+)");// 12: invokespecial #53  // Method org
+	private static final Pattern CALLER_LINE = Pattern.compile("(.+):[(](.+)?[)](.*)");
+	private static final Pattern STRING_LINE = Pattern.compile("(\\d+)[:]\\s*ldc\\s*(#\\d+)\\s*//\\s*String\\s(.*)");
 	private static final Pattern LINENUMBER_OP_LINE = Pattern.compile("line\\s+(\\d+):\\s+(\\d+)");// line 33: 63
-//	private static final String INVOKE_SPECIAL = "invokespecial";
 
 	private static List<String> LOG;
 
@@ -69,7 +56,7 @@ public class JavaPparser {
 		listFile(rootPath);
 	}
 
-	private static String trim(String a) { return a == null ?  "": a.trim(); }
+	private static final String trim(String a) { return a == null ?  "": a.trim(); }
 
 	private static final void log(String tag, Object d) {
 		if(LOG.contains(tag)) {
@@ -77,22 +64,25 @@ public class JavaPparser {
 		}
 	}
 
-
-	public static void listFile(String rootPath) throws IOException {
+	public static List<Data> listFile(String rootPath) throws IOException {
 		File p = new File(rootPath).getCanonicalFile();
+
+		List<Data> list = new ArrayList<>();
 
 		Files.walk(p.toPath()).filter(f -> f.toFile().isFile())
 			.forEach(file -> {
 				try {
 //					log("D", file);
-					parse(file.toFile());
+					list.addAll(parse(file.toFile()));
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			});
+
+		return list;
 	}
 
-	public static ClassStruct parse(File file) throws FileNotFoundException, IOException {
+	public static List<Data> parse(File file) throws FileNotFoundException, IOException {
 		ClassStruct clazz = new ClassStruct();
 		clazz.setClassName(file.getName());
 		log("class", "* " + clazz.getClassName());
@@ -111,16 +101,48 @@ public class JavaPparser {
 				log("file-line", line);
 				line = line.trim();
 
+
+				if(line.startsWith("descriptor:") && mObject != null) {
+					//
+					// method descriptor.
+					//
+
+					int last = line.indexOf(")");
+					if(last >= 0) {
+						String signature = line.substring(line.indexOf("(")+1, last).trim();
+						String prms = convertPlan(signature);
+						String retValue = convertPlan(line.substring(line.indexOf(")")+1).trim());
+
+						mObject.setMethodReturn(retValue);
+						mObject.setMethodParameters(trim(prms));
+					} else {
+						String signature = line.substring(line.indexOf(":")+1).trim();
+						mObject.setMethodReturn(convertPlan(signature));
+					}
+				}
+
+				if(line.startsWith("#")
+					|| line.startsWith("Classfile")
+					|| line.startsWith("descriptor:")
+					|| line.startsWith("Signature:")
+					|| line.startsWith("flags:")
+					|| line.startsWith("Code:")
+					|| line.startsWith("LocalVariableTypeTable:")
+					|| line.startsWith("stack")
+					|| line.startsWith("StackMapTable:")
+				){
+					continue;
+				}
+
 				//
 				// Pattern Init.
 				//
-				methodLineMatcher = METHOD_LIKE_LINE.matcher(line);
 				staticOpLineMatcher = STATIC_OP_LINE.matcher(line);
+				methodLineMatcher = METHOD_LIKE_LINE.matcher(line);
 				stringLineMatcher = STRING_LINE.matcher(line);
 				codeOpeLineMatcher = CODE_OPE_LINE.matcher(line);
 				lineNumberOpLineMatcher = LINENUMBER_OP_LINE.matcher(line);
 				if (staticOpLineMatcher.matches()) {
-					staticOpLineMatcher.find(0);
 					//
 					// static {} line.
 					//
@@ -131,48 +153,6 @@ public class JavaPparser {
 					mObject.setMethodReturn("void");
 					mObject.setMethodName(clazz.getClassName() + ".static");
 					mObject.setMethodParameters("");
-
-				} else if (methodLineMatcher.matches()) {
-					//
-					// Method line.
-					//
-
-					if(line.startsWith("#") || line.startsWith("descriptor:") || NONE_METHOD.matcher(line).matches()){
-						continue;
-					}
-					methodLineMatcher.find(0);
-
-					log("method", line);
-
-					addClassMethod(clazz, mObject);
-
-					mObject = new MethodObject();
-
-					int ks = line.indexOf("(");
-					String start = line.substring(0, ks);
-					Matcher mstruct = METHOD_STRUCT.matcher(start);
-					boolean isFind = mstruct.find(0);
-					if(isFind) {
-						String retValue = trim(mstruct.group(4));
-						String methodName = trim(mstruct.group(5));
-						if(methodName.isEmpty()) {
-							// constructor
-							methodName = retValue + ".\"<init>\"";
-							retValue = "void";
-						} else if(methodName.indexOf(".") < 0) {
-							// not found is Local-Method
-							methodName = clazz.getClassName() + "." + methodName;
-						}
-
-						mObject.setMethodReturn(retValue);
-						mObject.setMethodName(methodName);
-
-						String prms = line.substring(ks+1, line.indexOf(")"));
-						mObject.setMethodParameters(trim(prms));
-
-					} else {
-						log("exception", clazz.getClassName() + " UnMatch Line: " + line);
-					}
 
 				} else if(stringLineMatcher.matches()) {
 					stringLineMatcher.find(0);
@@ -194,9 +174,10 @@ public class JavaPparser {
 					String ll = codeOpeLineMatcher.group(1);
 //					String ap = trim(codeOpeLineMatcher.group(2));
 //					String op = codeOpeLineMatcher.group(3);
-					String caller = trim(codeOpeLineMatcher.group(4));
-//log("D", "    " + ll + " :: " + ap + " :: " + op + " :: " + caller );
+//					String caller = trim(codeOpeLineMatcher.group(4));
+//log("data", "    " + ll + " :: " + ap + " :: " + op + " :: " + caller );
 
+					String caller = line.substring(line.indexOf("Method") < 0 ? 0 : line.indexOf("Method") + "Method".length()).trim();
 					Matcher callerMatcher = CALLER_LINE.matcher(caller);
 					if(callerMatcher.find()) {
 						String callerMethod = trim(callerMatcher.group(1));
@@ -235,6 +216,57 @@ public class JavaPparser {
 					mObject.getLineNumberTableList().add(obj);
 
 					log("line-number", obj);
+
+				} else if (methodLineMatcher.matches()) {
+					//
+					// Method line.
+					//
+
+					if(NONE_METHOD.matcher(line).matches()){
+						continue;
+					}
+					methodLineMatcher.find(0);
+
+					log("method", line);
+
+					addClassMethod(clazz, mObject);
+
+					mObject = new MethodObject();
+
+					int ks = line.indexOf("(");
+					String start = line.substring(0, ks);
+					int mlast = start.lastIndexOf(" ");
+					mlast = (mlast < 0) ? 0 : mlast;
+					String methodName = start.substring(mlast).trim();
+					if(methodName.indexOf(".") < 0) {
+						// not found is Local-Method
+						methodName = clazz.getClassName() + "." + methodName;
+					}
+					mObject.setMethodName(methodName);
+
+//					Matcher mstruct = METHOD_STRUCT.matcher(start);
+//					boolean isFind = mstruct.find(0);
+//					if(isFind) {
+//						String retValue = trim(mstruct.group(4));
+//						String methodName = trim(mstruct.group(5));
+//						if(methodName.isEmpty()) {
+//							// constructor
+//							methodName = retValue + ".\"<init>\"";
+//							retValue = "void";
+//						} else if(methodName.indexOf(".") < 0) {
+//							// not found is Local-Method
+//							methodName = clazz.getClassName() + "." + methodName;
+//						}
+//
+//						mObject.setMethodReturn(retValue);
+//						mObject.setMethodName(methodName);
+//
+//						String prms = line.substring(ks+1, line.indexOf(")"));
+//						mObject.setMethodParameters(trim(prms));
+//
+//					} else {
+//						log("exception", clazz.getClassName() + " UnMatch Line: " + line);
+//					}
 				}
 			}
 
@@ -243,14 +275,14 @@ public class JavaPparser {
 		}
 
 		List<Data> list = new ArrayList<>();
+		Data d = null;
 		for (MethodObject methodObj : clazz.getMethodList()) {
-			Data d = new Data();
+			d = new Data();
 			d.setClassName(clazz.getClassName());
 			d.setMethodStruct(methodObj.toString());
 			d.setMethodCallerObject("-");
 			d.setMethodCallerLineNo("-");
 			d.setMethodLiteral(methodObj.getInnerStringLiteral());
-
 			log("data", d);
 			list.add(d);
 
@@ -260,13 +292,13 @@ public class JavaPparser {
 				d.setMethodStruct(methodObj.toString());
 				d.setMethodCallerObject(callerObj.toString());
 				d.setMethodCallerLineNo(String.valueOf(callerObj.getLine()));
-				d.setMethodLiteral("");
+				d.setMethodLiteral(methodObj.getInnerStringLiteral());
 
 				log("data", d);
 				list.add(d);
 			}
 		}
-		return clazz;
+		return list;
 	}
 
 	private static void addClassMethod(ClassStruct clazz, MethodObject mObject) {
@@ -296,14 +328,19 @@ public class JavaPparser {
 				}
 			}
 
+//			mObject.setLine(mObject.getLineNumberTableList().get(0).getLine());
+
 			clazz.getMethodList().add(mObject);
 		}
 	}
 
 	private static String convertPlan(String value) {
+//		System.out.print(":::::: " + value);
 		StringBuilder b = new StringBuilder();
+
+		boolean isArray = false;
 		for(int i = 0; i < value.length(); i++) {
-			if(b.length() > 0) {
+			if(b.length() > 0 && isArray == false) {
 				b.append(", ");
 			}
 			switch(value.charAt(i)) {
@@ -331,6 +368,14 @@ public class JavaPparser {
 			case 'D' :
 				b.append("double");
 				break;
+			case '[':
+				isArray = true;
+				continue;
+//				int lasta = value.indexOf(';', i);
+//				String objk = value.substring(i+1, lasta).replaceAll("/", ".");
+//				b.append(objk);
+//				i = lasta;
+//				break;
 			case 'L' :
 				int last = value.indexOf(';', i);
 				String obj = value.substring(i+1, last).replaceAll("/", ".");
@@ -338,7 +383,12 @@ public class JavaPparser {
 				i = last;
 				break;
 			}
+			if(isArray) {
+				b.append("[]");
+				isArray = false;
+			}
 		}
+//		System.out.println(" ||| " +b);
 		return b.toString();
 	}
 }
