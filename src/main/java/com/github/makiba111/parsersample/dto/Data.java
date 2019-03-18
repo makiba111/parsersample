@@ -7,6 +7,7 @@ public class Data {
 	private String methodCallerObject;
 	private String methodCallerLineNo;
 	private String methodLiteral;
+	private String duplicateMark;
 
 	public String getClassName() {
 		return className;
@@ -38,6 +39,12 @@ public class Data {
 	}
 	public void setMethodLiteral(String methodLiteral) {
 		this.methodLiteral = methodLiteral;
+	}
+	public String getDuplicateMark() {
+		return duplicateMark;
+	}
+	public void setDuplicateMark(String duplicateMark) {
+		this.duplicateMark = duplicateMark;
 	}
 
 	public String toString() {

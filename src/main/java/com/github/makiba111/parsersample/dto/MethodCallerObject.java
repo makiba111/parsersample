@@ -10,6 +10,7 @@ public class MethodCallerObject {
 	private String methodName;
 	private String methodParameters;
 	private String methodReturn;
+	private int duplidateMark;
 
 	public int getLine() {
 		return line;
@@ -40,6 +41,12 @@ public class MethodCallerObject {
 	}
 	public void setMethodReturn(String methodReturn) {
 		this.methodReturn = methodReturn;
+	}
+	public int getDuplidateMark() {
+		return duplidateMark;
+	}
+	public void setDuplidateMark(int duplidateMark) {
+		this.duplidateMark = duplidateMark;
 	}
 
 	public String toString() {
